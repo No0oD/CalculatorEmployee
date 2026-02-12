@@ -2,6 +2,8 @@ package com.example.calculator.components
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,7 +34,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
@@ -54,161 +55,220 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import com.example.calculator.dataClass.Employee
+import com.example.calculator.dataClass.EmployeeSchedule
 import com.example.calculator.ui.theme.MyRed
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import kotlin.math.absoluteValue
 
 data class ShiftModel(
     val id: Long = System.currentTimeMillis(),
     val startDate: LocalDate,
     val endDate: LocalDate,
-    val startTime: String = "00",
-    val endTime: String = "00"
+    val startHour: String = "00",
+    val startMinute: String = "00",
+    val endHour: String = "00",
+    val endMinute: String = "00"
+
 )
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun ShiftSchedule() {
+fun ShiftSchedule(
+    employees: List<Employee>,
+    onDismiss: () -> Unit,
+    onSave: (Employee, List<ShiftModel>) -> Unit
+) {
     var shiftList by remember { mutableStateOf(listOf<ShiftModel>()) }
     var firstSelectedDate by remember { mutableStateOf<LocalDate?>(null) }
+    var selectedEmployee by remember { mutableStateOf<Employee?>(null) }
 
-    // --- ЛОГІКА ПІДРАХУНКУ ГОДИН ---
-    // Перераховується автоматично при зміні shiftList
-    val totalHours = shiftList.sumOf { shift ->
-        val start = shift.startTime.toIntOrNull() ?: 0
-        val end = shift.endTime.toIntOrNull() ?: 0
-
-        // Логіка: якщо кінець більший за початок (08 -> 20) = 12
-        // Якщо перехід через ніч (22 -> 06) = 8
-        if (end >= start) end - start else (24 - start) + end
+    val totalHours = shiftList.sumOf {
+        calculateHours(
+            it.startHour, it.startMinute,
+            it.endHour, it.endMinute
+        )
     }
-
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        ExposedDropdownMenuExample()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            EmployeeSelector(
+                employees = employees,
+                selectedEmployee = selectedEmployee,
+                onEmployeeSelected = { selectedEmployee = it }
+            )
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-        CustomShiftCalendar(
-            selectedDate = firstSelectedDate,
-            existingShifts = shiftList,
-            onDateSelected = { date ->
-                if (firstSelectedDate == null) {
-                    firstSelectedDate = date
-                } else {
+            CustomShiftCalendar(
+                selectedDate = firstSelectedDate,
+                existingShifts = shiftList,
+                onDateSelected = { date ->
+
+                    if (firstSelectedDate == null) {
+                        firstSelectedDate = date
+                        return@CustomShiftCalendar
+                    }
+
                     val first = firstSelectedDate!!
 
-                    // Спрощена вставка для прикладу (ваша повна логіка тут)
-                    val (start, end) = if (first.isBefore(date)) first to date else date to first
-                    val alreadyExists = shiftList.any { it.startDate == start && it.endDate == end }
+                    val (start, end) =
+                        if (first.isBefore(date)) first to date else date to first
 
-                    if (!alreadyExists && (first.plusDays(1) == date || first.minusDays(1) == date || first == date)) {
+                    val diff = ChronoUnit.DAYS.between(start, end).toInt()
+                    val isSameDay = diff == 0
+                    val isNeighbour = diff == 1
 
-                        shiftList = shiftList + ShiftModel(startDate = start, endDate = end)
-                        firstSelectedDate = null
-                    } else if (!alreadyExists && (date.dayOfMonth == 1 || date.dayOfMonth == date.lengthOfMonth())) {
-                        shiftList = shiftList + ShiftModel(startDate = date, endDate = date)
+                    val isEdgeDay =
+                        start.dayOfMonth == 1 ||
+                                start.dayOfMonth == start.lengthOfMonth()
+
+                    val alreadyExists = shiftList.any {
+                        it.startDate == start && it.endDate == end
+                    }
+
+                    val isValid =
+                        (isSameDay && isEdgeDay) || // 1->1 або останній->останній
+                                isNeighbour                 // n->n+1
+
+                    if (isValid && !alreadyExists) {
+                        shiftList = shiftList + ShiftModel(
+                            startDate = start,
+                            endDate = end
+                        )
                         firstSelectedDate = null
                     } else {
+                        // 🔥 reset тільки якщо не створили зміну
                         firstSelectedDate = date
                     }
                 }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // --- ЗАГОЛОВОК З ПІДРАХУНКОМ ---
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Обрані зміни:",
-                style = MaterialTheme.typography.titleMedium
             )
 
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Text(
-                text = "Загалом годин: $totalHours",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(vertical = 8.dp)
-        ) {
-            items(shiftList) { shift ->
-                ShiftItem(
-                    shift = shift,
-                    onDelete = { shiftList = shiftList - shift },
-                    onTimeChange = { newStart, newEnd ->
-                        shiftList = shiftList.map {
-                            if (it.id == shift.id) it.copy(startTime = newStart, endTime = newEnd) else it
-                        }
-                    }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Обрані зміни:",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "Загалом годин: $totalHours",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
-        }
 
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            OutlinedButton(
-                onClick = { shiftList = emptyList(); firstSelectedDate = null },
-                modifier = Modifier.weight(1f)
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                Text("Очистити все")
+                items(shiftList) { shift ->
+                    ShiftItem(
+                        shift = shift,
+                        onDelete = { shiftList = shiftList - shift },
+                        onTimeChange = { updatedShift ->
+                            shiftList = shiftList.map {
+                                if (it.id == updatedShift.id) updatedShift else it
+                            }
+                        }
+
+                    )
+                }
             }
 
-            Button(
-                onClick = { /* Save logic */ },
-                modifier = Modifier.weight(1f)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text("Зберегти")
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Скасувати")
+                }
+
+                Button(
+                    onClick = {
+                        if (selectedEmployee != null && shiftList.isNotEmpty()) {
+                            onSave(selectedEmployee!!, shiftList)
+                        }
+                    },
+                    enabled = selectedEmployee != null && shiftList.isNotEmpty(),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Зберегти")
+                }
             }
         }
     }
-    }
+}
+
+// Допоміжна функція розрахунку годин
+fun calculateHours(
+    startHour: String,
+    startMinute: String,
+    endHour: String,
+    endMinute: String
+): Int {
+
+    val startH = startHour.toIntOrNull() ?: 0
+    val startM = startMinute.toIntOrNull() ?: 0
+    val endH = endHour.toIntOrNull() ?: 0
+    val endM = endMinute.toIntOrNull() ?: 0
+
+    val startTotal = startH * 60 + startM
+    val endTotal = endH * 60 + endM
+
+    val diffMinutes =
+        if (endTotal >= startTotal)
+            endTotal - startTotal
+        else
+            (24 * 60 - startTotal) + endTotal
+
+    return diffMinutes / 60
 }
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun CustomShiftCalendar(
     selectedDate: LocalDate?,
-    existingShifts: List<ShiftModel>, // Список збережених змін
+    existingShifts: List<ShiftModel>,
     onDateSelected: (LocalDate) -> Unit
 ) {
     var currentMonth by remember { mutableStateOf(YearMonth.now()) }
-
-
     val ukrainianLocale = Locale("uk", "UA")
     val monthFormatter = DateTimeFormatter.ofPattern("LLLL yyyy", ukrainianLocale)
+
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White)
+
+
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
             // Навігація
@@ -255,28 +315,28 @@ fun CustomShiftCalendar(
                 items(days) { day ->
                     val date = currentMonth.atDay(day)
 
-                    // Логіка станів
-                    val isSelectedActive = selectedDate == date // Обрано зараз (1 клік)
-
-                    // (1) Перевірка чи дата вже є у збережених змінах
+                    val isSelectedActive = selectedDate == date
                     val isSaved = existingShifts.any { shift ->
                         date == shift.startDate || date == shift.endDate
                     }
 
-                    val isBoundary = day == 1 || day == daysInMonth
-
-                    // Підсвітка можливих ходів
                     val isPossibleSelection = if (selectedDate != null) {
-                        val diff = ChronoUnit.DAYS.between(selectedDate, date)
-                        kotlin.math.abs(diff) == 1L || (isBoundary && diff == 0L)
+                        val diff = ChronoUnit.DAYS.between(selectedDate, date).toInt().absoluteValue
+                        val isSameDay = diff == 0
+                        val isNeighbour = diff == 1
+
+                        val isEdgeDay =
+                            selectedDate.dayOfMonth == 1 ||
+                                    selectedDate.dayOfMonth == selectedDate.lengthOfMonth()
+
+                        (isNeighbour) || (isSameDay && isEdgeDay)
                     } else {
                         true
                     }
 
-                    // Вибір кольору
                     val bgColor = when {
-                        isSelectedActive -> MaterialTheme.colorScheme.primary // Поточний вибір (Яскравий)
-                        isSaved -> MaterialTheme.colorScheme.secondary // Збережені (Інший колір, напр. бірюзовий)
+                        isSelectedActive -> MaterialTheme.colorScheme.primary
+                        isSaved -> MaterialTheme.colorScheme.secondary
                         selectedDate != null && isPossibleSelection -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                         else -> Color.Transparent
                     }
@@ -312,7 +372,7 @@ fun CustomShiftCalendar(
 fun ShiftItem(
     shift: ShiftModel,
     onDelete: () -> Unit,
-    onTimeChange: (String, String) -> Unit // Callback для оновлення часу
+    onTimeChange: (ShiftModel) -> Unit
 ) {
     val dayFormatter = DateTimeFormatter.ofPattern("dd")
 
@@ -346,25 +406,40 @@ fun ShiftItem(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Початок зміни
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Початок зміни", fontSize = 14.sp, color = Color.Gray)
+
                     TimeInputFields(
-                        hours = shift.startTime,
-                        minutes = "00",
-                        onTimeChange = { h, m -> onTimeChange(h, shift.endTime) }
+                        hour = shift.startHour,
+                        minute = shift.startMinute,
+                        onTimeChange = { h, m ->
+                            onTimeChange(
+                                shift.copy(
+                                    startHour = h,
+                                    startMinute = m
+                                )
+                            )
+                        }
                     )
                 }
 
-                // Кінець зміни
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Кінець зміни", fontSize = 14.sp, color = Color.Gray)
+
                     TimeInputFields(
-                        hours = shift.endTime,
-                        minutes = "00",
-                        onTimeChange = { h, m -> onTimeChange(shift.startTime, h) }
+                        hour = shift.endHour,
+                        minute = shift.endMinute,
+                        onTimeChange = { h, m ->
+                            onTimeChange(
+                                shift.copy(
+                                    endHour = h,
+                                    endMinute = m
+                                )
+                            )
+                        }
                     )
                 }
+
             }
         }
     }
@@ -372,86 +447,31 @@ fun ShiftItem(
 
 @Composable
 fun TimeInputFields(
-    hours: String,
-    minutes: String,
+    hour: String,
+    minute: String,
     onTimeChange: (String, String) -> Unit
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.padding(top = 4.dp)
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         TimeField(
-            value = hours,
-            onValueChange = { newValue ->
-                if (newValue.length <= 2 && newValue.all { it.isDigit() }) {
-                    onTimeChange(newValue, minutes)
-                }
-            },
-            onFocusLost = {
-                onTimeChange(formatTimeValue(hours), minutes)
+            value = hour,
+            max = 23,
+            onValueChange = { newHour ->
+                onTimeChange(newHour, minute)
             }
         )
-        Text(":", style = MaterialTheme.typography.bodyLarge)
 
-        // Поле хвилин (візуальне, якщо поки не впливає на розрахунок)
+        Text(":")
+
         TimeField(
-            value = minutes,
-            onValueChange = { /* Логіка хвилин */ },
-            onFocusLost = { /* Логіка хвилин */ }
-        )
-    }
-}
-
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ExposedDropdownMenuExample() {
-    var expanded by remember { mutableStateOf(false) }
-    var selectedOption by remember { mutableStateOf("ПІБ") }
-
-    val options = listOf("Option 1", "Option 2", "Option 3", "Option 4", "Option 5")
-
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = { expanded = !expanded }
-        ) {
-
-            OutlinedTextField(
-                value = selectedOption,
-                onValueChange = {},
-                readOnly = true,
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                },
-                colors = ExposedDropdownMenuDefaults.textFieldColors(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-            )
-
-            ExposedDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option, color = MaterialTheme.colorScheme.onSurface) },
-                        onClick = {
-                            selectedOption = option
-                            expanded = false
-                        },
-                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
-                    )
-                }
+            value = minute,
+            max = 59,
+            onValueChange = { newMinute ->
+                onTimeChange(hour, newMinute)
             }
-        }
+        )
     }
 }
 
@@ -459,125 +479,202 @@ fun ExposedDropdownMenuExample() {
 @Composable
 fun TimeField(
     value: String,
-    onValueChange: (String) -> Unit,
-    onFocusLost: () -> Unit
+    max: Int,
+    onValueChange: (String) -> Unit
 ) {
+
     OutlinedTextField(
         value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier
-            .width(55.dp)
-            .onFocusChanged { focusState ->
-                if (!focusState.isFocused) {
-                    onFocusLost()
+        onValueChange = { input ->
+
+            if (input.length <= 2 && input.all { it.isDigit() }) {
+
+                val number = input.toIntOrNull()
+
+                if (number == null || number <= max) {
+                    onValueChange(input)
                 }
-            },
-        textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
+            }
+        },
+        modifier = Modifier.width(55.dp),
+        singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        singleLine = true
+        textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center)
     )
 }
 
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EmployeeCardSchedule() {
+fun EmployeeSelector(
+    employees: List<Employee>,
+    selectedEmployee: Employee?,
+    onEmployeeSelected: (Employee) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
 
-    var showDeleteDialog by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded }
+    ) {
+        OutlinedTextField(
+            value = selectedEmployee?.fullName ?: "Оберіть працівника",
+            onValueChange = {},
+            readOnly = true,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            colors = ExposedDropdownMenuDefaults.textFieldColors(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable) // Використовуємо коректний тип Anchor
+        )
 
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-        ProvideTextStyle(
-            value = TextStyle(
-                fontSize = 20.sp,
-                color = Color.Black
-            )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
         ) {
-
-            Column(Modifier.padding(16.dp).fillMaxWidth(),
-
-            ) {
-                Text("ПІБ")
-                Spacer(Modifier.height(16.dp))
-
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Статус:") // активний \ завершено
-                    Text("активний")
-                }
-                Spacer(Modifier.height(16.dp))
-
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Кількість годин :")
-                    Text("156 годин")
-                }
-                Spacer(Modifier.height(10.dp))
-
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Кількість змін :")
-                    Row(
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("20 змін")
-                        IconButton(onClick = {}) {
-                            Icon(
-                                Icons.Default.ArrowDropDown,
-                                contentDescription = null
-                            )
-                        }
+            employees.forEach { employee ->
+                DropdownMenuItem(
+                    text = { Text(employee.fullName) },
+                    onClick = {
+                        onEmployeeSelected(employee)
+                        expanded = false
                     }
-                }
-                Spacer(Modifier.height(12.dp))
-
-                IconButton(
-                    onClick = { showDeleteDialog = true }, // Спочатку показуємо діалог
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(55.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = MyRed
-                    )
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(Icons.Default.Delete, contentDescription = "Видалити")
-                        Text("Видалити")
-
-                    }
-                    if (showDeleteDialog) {
-                        AlertDialog(
-                            onDismissRequest = { showDeleteDialog = false },
-                            title = { Text("Видалити працівника?") },
-                            text = { Text("Дійсно хочете видалити ?") },
-                            confirmButton = {
-                                Button(
-                                    onClick = {
-                                        // onDeleteClick()
-                                        showDeleteDialog = false
-                                    },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MyRed
-                                    )
-                                ) {
-                                    Text("Видалити")
-                                }
-                            },
-                            dismissButton = {
-                                TextButton(onClick = { showDeleteDialog = false }) {
-                                    Text("Скасувати")
-                                }
-                            }
-                        )
-                    }
-                }
+                )
+            }
+            if (employees.isEmpty()) {
+                DropdownMenuItem(
+                    text = { Text("Список працівників порожній") },
+                    onClick = { expanded = false }
+                )
             }
         }
     }
 }
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun EmployeeCardSchedule(
+    schedule: EmployeeSchedule,
+    onDeleteClick: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    val rotationState by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f, label = "rotation"
+    )
+
+    val totalHours = schedule.shifts.sumOf {
+        calculateHours(
+            it.startHour, it.startMinute,
+            it.endHour, it.endMinute
+        )
+    }
+    val totalShifts = schedule.shifts.size
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth()
+        ) {
+            Text(
+                text = schedule.employee.fullName,
+                style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+            )
+            Spacer(Modifier.height(16.dp))
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Статус:", color = Color.Gray)
+                Text("активний", fontWeight = FontWeight.Medium)
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Кількість годин:", color = Color.Gray)
+                Text("$totalHours годин", fontWeight = FontWeight.Medium)
+            }
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Кількість змін:")
+                Row(
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("$totalShifts змін")
+                    IconButton(
+                        onClick = { expanded = !expanded },
+                        modifier = Modifier.rotate(rotationState)
+                    ) {
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Розгорнути")
+                    }
+                }
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Графік змін:", style = MaterialTheme.typography.labelLarge)
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    CustomShiftCalendar(
+                        selectedDate = null,
+                        existingShifts = schedule.shifts,
+                        onDateSelected = { }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Button(
+                onClick = { showDeleteDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MyRed)
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = "Видалити")
+                Spacer(Modifier.width(8.dp))
+                Text("Видалити")
+            }
+        }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Видалити графік?") },
+            text = { Text("Дійсно хочете видалити графік для ${schedule.employee.fullName}?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteClick()
+                        showDeleteDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MyRed)
+                ) {
+                    Text("Видалити")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Скасувати")
+                }
+            }
+        )
+    }
+}
+
 
 fun formatTimeValue(value: String): String {
     return when {
@@ -586,20 +683,4 @@ fun formatTimeValue(value: String): String {
         else -> value
     }
 }
-
-@Preview
-@Composable
-fun ShowEmployeeCardSchedule() {
-    EmployeeCardSchedule()
-}
-
-@RequiresApi(Build.VERSION_CODES.O)
-@Preview
-@Composable
-fun ShowShiftSchedule() {
-    ShiftSchedule()
-}
-
-
-
 

@@ -29,6 +29,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.calculator.components.AddEmployeeItem
 import com.example.calculator.components.ShiftSchedule
 import com.example.calculator.dataClass.Employee
+import com.example.calculator.dataClass.EmployeeSchedule
 import com.example.calculator.nav.Screen
 import com.example.calculator.nav.NavigationHost
 
@@ -42,34 +43,27 @@ fun MainScreen() {
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val currentScreen = screens.find { it.route == currentRoute } ?: Screen.AddEmployee
 
-    val currentScreen = screens.find { it.route == currentRoute }?: Screen.AddEmployee
+    // Стан для відображення діалогів
+    var showAddEmployeeDialog by remember { mutableStateOf(false) }
+    var showCreateScheduleDialog by remember { mutableStateOf(false) }
 
-    var showAddEmployee by remember { mutableStateOf(false) }
-    var showCreateEmployee by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState (skipPartiallyExpanded = true)
-
-
+    // ДАНІ
     var employees by remember { mutableStateOf(listOf<Employee>()) }
-
+    var schedules by remember { mutableStateOf(listOf<EmployeeSchedule>()) }
 
     val showFab = currentRoute == Screen.AddEmployee.route || currentRoute == Screen.CreateEmployeeSchedule.route
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(currentScreen.title) }
-            )
-        },
+        topBar = { TopAppBar(title = { Text(currentScreen.title) }) },
         bottomBar = {
             BottomNavBar(
                 screens = screens,
                 currentRoute = currentRoute,
-                onNavigate = {route ->
+                onNavigate = { route ->
                     navController.navigate(route) {
-                        popUpTo(navController.graph.startDestinationId) {
-                            saveState = true
-                        }
+                        popUpTo(navController.graph.startDestinationId) { saveState = true }
                         launchSingleTop = true
                         restoreState = true
                     }
@@ -81,62 +75,71 @@ fun MainScreen() {
                 FloatingActionButton(
                     onClick = {
                         when (currentRoute) {
-                            Screen.AddEmployee.route -> {
-                                // to do late
-                                showAddEmployee = true
-                            }
-                            Screen.CreateEmployeeSchedule.route -> {
-                                // to do late
-                                showCreateEmployee = true
-                            }
+                            Screen.AddEmployee.route -> showAddEmployeeDialog = true
+                            Screen.CreateEmployeeSchedule.route -> showCreateScheduleDialog = true
                         }
                     }
                 ) {
                     Icon(
-                        imageVector = when (currentRoute) {
-                            Screen.AddEmployee.route -> Icons.Filled.Add
-                            Screen.CreateEmployeeSchedule.route -> Icons.Filled.DateRange
-                            else -> Icons.Filled.Add
-                        },
+                        imageVector = if (currentRoute == Screen.CreateEmployeeSchedule.route) Icons.Filled.DateRange else Icons.Filled.Add,
                         contentDescription = "FAB"
                     )
                 }
             }
         }
-    ) {paddingValues ->
+    ) { paddingValues ->
         NavigationHost(
             navController = navController,
-            modifier = Modifier.padding(paddingValues),
             employees = employees,
+            schedules = schedules,
+            onUpdateEmployees = { employees = it },
+            onUpdateSchedules = { schedules = it },
+            modifier = Modifier.padding(paddingValues),
             onDeleteEmployee = { employee ->
                 employees = employees.filter { it.id != employee.id }
             }
         )
-        if(showAddEmployee) {
+        // ДІАЛОГ ДОДАВАННЯ ПРАЦІВНИКА
+        if (showAddEmployeeDialog) {
             Dialog(
-                onDismissRequest = { showAddEmployee = false },
+                onDismissRequest = { showAddEmployeeDialog = false },
                 properties = DialogProperties(usePlatformDefaultWidth = false)
             ) {
                 AddEmployeeItem(
                     onEmployeeAdded = { name ->
                         employees = employees + Employee(fullName = name)
-                        showAddEmployee = false
+                        showAddEmployeeDialog = false
                     }
                 )
             }
         }
 
-        Dialog(
-            onDismissRequest = { showCreateEmployee = false },
-            properties = DialogProperties(
-                usePlatformDefaultWidth = false,
-                 dismissOnBackPress = true,
-                dismissOnClickOutside = false
-            )
-        ) {
-               ShiftSchedule()
-            }
+        // ДІАЛОГ СТВОРЕННЯ ГРАФІКУ (ShiftSchedule)
+        if (showCreateScheduleDialog) {
+            Dialog(
+                onDismissRequest = { showCreateScheduleDialog = false },
+                properties = DialogProperties(
+                    usePlatformDefaultWidth = false,
+                    dismissOnBackPress = true,
+                    dismissOnClickOutside = false
+                )
+            ) {
+                ShiftSchedule(
+                    employees = employees,
+                    onDismiss = { showCreateScheduleDialog = false },
+                    onSave = { employee, shifts ->
+                        // Додаємо новий графік або оновлюємо існуючий для цього працівника
+                        val newSchedule = EmployeeSchedule(employee, shifts)
 
+                        // Логіка: видаляємо старий графік цього працівника, якщо він був, і додаємо новий
+                        val otherSchedules = schedules.filter { it.employee.id != employee.id }
+                        schedules = otherSchedules + newSchedule
+
+                        showCreateScheduleDialog = false
+                    }
+                )
+            }
+        }
     }
 }
 
