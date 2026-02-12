@@ -674,13 +674,3 @@ fun EmployeeCardSchedule(
         )
     }
 }
-
-
-fun formatTimeValue(value: String): String {
-    return when {
-        value.isEmpty() -> "00"
-        value.length == 1 -> "0$value"
-        else -> value
-    }
-}
-
