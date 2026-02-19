@@ -61,12 +61,22 @@ import androidx.compose.ui.text.TextStyle
 import com.example.calculator.dataClass.Employee
 import com.example.calculator.dataClass.EmployeeSchedule
 import com.example.calculator.ui.theme.MyRed
+import com.example.calculator.utils.formatMonthKey
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 import kotlin.math.absoluteValue
+
+@RequiresApi(Build.VERSION_CODES.O)
+fun areAllShiftsInSameMonth(shifts: List<ShiftModel>): Boolean {
+    if (shifts.isEmpty()) return true
+    val grouped = shifts.groupBy {
+        Pair(it.startDate.year, it.startDate.monthValue)
+    }
+    return grouped.size == 1
+}
 
 data class ShiftModel(
     val id: Long = System.currentTimeMillis(),
@@ -88,6 +98,7 @@ fun ShiftSchedule(
     var shiftList by remember { mutableStateOf(listOf<ShiftModel>()) }
     var firstSelectedDate by remember { mutableStateOf<LocalDate?>(null) }
     var selectedEmployee by remember { mutableStateOf<Employee?>(null) }
+    var showErrorDialog by remember { mutableStateOf(false) }
 
     val totalHours = shiftList.sumOf {
         calculateHours(
@@ -215,16 +226,33 @@ fun ShiftSchedule(
                 Button(
                     onClick = {
                         if (selectedEmployee != null && shiftList.isNotEmpty()) {
-                            onSave(selectedEmployee!!, shiftList)
+                            if (areAllShiftsInSameMonth(shiftList)) {
+                                onSave(selectedEmployee!!, shiftList)
+                            } else {
+                                showErrorDialog = true  // ← Показуємо діалог
+                            }
                         }
-                    },
-                    enabled = selectedEmployee != null && shiftList.isNotEmpty(),
-                    modifier = Modifier.weight(1f)
-                ) {
+                    }
+                )
+                {
                     Text("Зберегти")
                 }
             }
         }
+
+        if (showErrorDialog) {
+            AlertDialog(
+                onDismissRequest = { showErrorDialog = false },
+                title = { Text("Помилка") },
+                text = { Text("Зміни повинні бути в одному місяці!") },
+                confirmButton = {
+                    Button(onClick = { showErrorDialog = false }) {
+                        Text("Зрозуміло")
+                    }
+                }
+            )
+        }
+
     }
 }
 
@@ -257,6 +285,7 @@ fun calculateHours(
 fun CustomShiftCalendar(
     selectedDate: LocalDate?,
     existingShifts: List<ShiftModel>,
+    showMonthNavigation: Boolean = true,
     onDateSelected: (LocalDate) -> Unit
 ) {
     var currentMonth by remember { mutableStateOf(YearMonth.now()) }
@@ -277,8 +306,12 @@ fun CustomShiftCalendar(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { currentMonth = currentMonth.minusMonths(1) }) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Prev")
+                if (showMonthNavigation) {
+                    IconButton(onClick = { currentMonth = currentMonth.minusMonths(1) }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Prev")
+                    }
+                } else {
+                    Spacer(modifier = Modifier.size(48.dp))
                 }
 
                 Text(
@@ -287,8 +320,12 @@ fun CustomShiftCalendar(
                     fontWeight = FontWeight.Bold
                 )
 
-                IconButton(onClick = { currentMonth = currentMonth.plusMonths(1) }) {
-                    Icon(Icons.Default.ArrowForward, contentDescription = "Next")
+                if (showMonthNavigation) {
+                    IconButton(onClick = { currentMonth = currentMonth.plusMonths(1) }) {
+                        Icon(Icons.Default.ArrowForward, contentDescription = "Next")
+                    }
+                } else {
+                    Spacer(modifier = Modifier.size(48.dp))
                 }
             }
 
@@ -555,6 +592,7 @@ fun EmployeeSelector(
 @Composable
 fun EmployeeCardSchedule(
     schedule: EmployeeSchedule,
+    monthKey: String,
     onDeleteClick: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -571,6 +609,8 @@ fun EmployeeCardSchedule(
         )
     }
     val totalShifts = schedule.shifts.size
+
+    val formattedMonth = formatMonthKey(monthKey)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -589,10 +629,11 @@ fun EmployeeCardSchedule(
             Spacer(Modifier.height(16.dp))
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Статус:", color = Color.Gray)
-                Text("активний", fontWeight = FontWeight.Medium)
+                Text("Місяць:", color = Color.Gray)
+                Text(formattedMonth, fontWeight = FontWeight.Medium)
             }
             Spacer(Modifier.height(8.dp))
+
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Кількість годин:", color = Color.Gray)
                 Text("$totalHours годин", fontWeight = FontWeight.Medium)
@@ -654,7 +695,9 @@ fun EmployeeCardSchedule(
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Видалити графік?") },
-            text = { Text("Дійсно хочете видалити графік для ${schedule.employee.fullName}?") },
+            text = {
+                Text("Дійсно хочете видалити графік для ${schedule.employee.fullName} за $formattedMonth?")
+            },
             confirmButton = {
                 Button(
                     onClick = {

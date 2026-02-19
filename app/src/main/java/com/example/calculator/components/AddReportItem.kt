@@ -10,13 +10,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -36,16 +32,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.calculator.dataClass.EmployeeSchedule
+import com.example.calculator.utils.formatMonthKey
 
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AddReportItem(
     schedule: EmployeeSchedule,
-    // totalHours
-    ) {
-
+    monthKey: String
+) {
     var expanded by remember { mutableStateOf(false) }
+
+    val totalHours = schedule.shifts.sumOf {
+        calculateHours(
+            it.startHour, it.startMinute,
+            it.endHour, it.endMinute
+        )
+    }
+    val totalShifts = schedule.shifts.size
+    val hasSchedule = schedule.shifts.isNotEmpty()
+
+    val formattedMonth = if (hasSchedule) formatMonthKey(monthKey) else "Графік не створено"
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -58,15 +65,29 @@ fun AddReportItem(
                 .fillMaxWidth()
         ) {
             Text(
-                text = "ПІБ",
+                text = schedule.employee.fullName,
                 style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
             )
 
             Spacer(Modifier.height(16.dp))
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Місяць:", color = Color.Gray)
+                Text(
+                    text = formattedMonth,
+                    fontWeight = FontWeight.Medium,
+                    color = if (hasSchedule) Color.Black else Color.Gray
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Загальна кількість годин:", color = Color.Gray)
-                Text("nnn годин", fontWeight = FontWeight.Medium)
+                Text(
+                    text = if (hasSchedule) "$totalHours годин" else "0 годин",
+                    fontWeight = FontWeight.Medium,
+                    color = if (hasSchedule) Color.Black else Color.Gray
+                )
             }
             Spacer(Modifier.height(8.dp))
 
@@ -80,31 +101,38 @@ fun AddReportItem(
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("n змін")
-                    IconButton(
-                        onClick = { expanded = !expanded },
-                    ) {
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Розгорнути")
+                    Text(
+                        text = if (hasSchedule) "$totalShifts змін" else "0 змін",
+                        color = if (hasSchedule) Color.Black else Color.Gray
+                    )
+
+                    if (hasSchedule) {
+                        IconButton(
+                            onClick = { expanded = !expanded },
+                        ) {
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = "Розгорнути")
+                        }
                     }
                 }
             }
 
-            AnimatedVisibility(visible = expanded) {
-                Column {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Графік змін:", style = MaterialTheme.typography.labelLarge)
-                    Spacer(modifier = Modifier.height(8.dp))
+            if (hasSchedule) {
+                AnimatedVisibility(visible = expanded) {
+                    Column {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Графік змін:", style = MaterialTheme.typography.labelLarge)
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                    CustomShiftCalendar(
-                        selectedDate = null,
-                        existingShifts = schedule.shifts,
-                        onDateSelected = { }
-                    )
+                        CustomShiftCalendar(
+                            selectedDate = null,
+                            existingShifts = schedule.shifts,
+                            onDateSelected = { }
+                        )
+                    }
                 }
             }
 
             Spacer(Modifier.height(16.dp))
-
         }
     }
 }

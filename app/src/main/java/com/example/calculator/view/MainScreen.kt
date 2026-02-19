@@ -29,6 +29,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.calculator.components.AddEmployeeItem
 import com.example.calculator.components.ShiftSchedule
 import com.example.calculator.dataClass.Employee
+import com.example.calculator.dataClass.EmployeeReport
 import com.example.calculator.dataClass.EmployeeSchedule
 import com.example.calculator.nav.Screen
 import com.example.calculator.nav.NavigationHost
@@ -52,6 +53,8 @@ fun MainScreen() {
     // ДАНІ
     var employees by remember { mutableStateOf(listOf<Employee>()) }
     var schedules by remember { mutableStateOf(listOf<EmployeeSchedule>()) }
+    var reports by remember { mutableStateOf(listOf<EmployeeReport>()) }
+
 
     val showFab = currentRoute == Screen.AddEmployee.route || currentRoute == Screen.CreateEmployeeSchedule.route
 
@@ -90,15 +93,11 @@ fun MainScreen() {
     ) { paddingValues ->
         NavigationHost(
             navController = navController,
-            employees = employees,
-            schedules = schedules,
-            onUpdateEmployees = { employees = it },
-            onUpdateSchedules = { schedules = it },
-            modifier = Modifier.padding(paddingValues),
-            onDeleteEmployee = { employee ->
-                employees = employees.filter { it.id != employee.id }
-            }
+            reports = reports,
+            onUpdateReports = { reports = it },
+            modifier = Modifier.padding(paddingValues)
         )
+
         // ДІАЛОГ ДОДАВАННЯ ПРАЦІВНИКА
         if (showAddEmployeeDialog) {
             Dialog(
@@ -107,7 +106,13 @@ fun MainScreen() {
             ) {
                 AddEmployeeItem(
                     onEmployeeAdded = { name ->
-                        employees = employees + Employee(fullName = name)
+
+                        val newEmployee = Employee(fullName = name)
+                        val newReport = EmployeeReport(
+                            employee = newEmployee,
+                            shifts = emptyList()
+                        )
+                        reports = reports + newReport
                         showAddEmployeeDialog = false
                     }
                 )
@@ -125,16 +130,17 @@ fun MainScreen() {
                 )
             ) {
                 ShiftSchedule(
-                    employees = employees,
+                    employees = reports.map { it.employee },
                     onDismiss = { showCreateScheduleDialog = false },
                     onSave = { employee, shifts ->
-                        // Додаємо новий графік або оновлюємо існуючий для цього працівника
-                        val newSchedule = EmployeeSchedule(employee, shifts)
 
-                        // Логіка: видаляємо старий графік цього працівника, якщо він був, і додаємо новий
-                        val otherSchedules = schedules.filter { it.employee.id != employee.id }
-                        schedules = otherSchedules + newSchedule
-
+                        reports = reports.map { report ->
+                            if (report.employee.id == employee.id) {
+                                report.copy(shifts = shifts)
+                            } else {
+                                report
+                            }
+                        }
                         showCreateScheduleDialog = false
                     }
                 )

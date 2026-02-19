@@ -15,14 +15,39 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.calculator.components.EmployeeCardSchedule
+import com.example.calculator.dataClass.EmployeeReport
 import com.example.calculator.dataClass.EmployeeSchedule
+import com.example.calculator.dataClass.MonthlyScheduleCard
+import com.example.calculator.utils.groupShiftsByMonth
+
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun CreateEmployeeScheduleScreen(
-    schedules: List<EmployeeSchedule>,
-    onDeleteSchedule: (EmployeeSchedule) -> Unit
+    reports: List<EmployeeReport>,
+    onDeleteSchedule: (EmployeeReport, String) -> Unit
 ) {
-    if (schedules.isEmpty()) {
+
+
+    val scheduleCards = buildList<MonthlyScheduleCard> {
+        reports.forEach { report ->
+            if (report.shifts.isNotEmpty()) {
+                val shiftsByMonth = groupShiftsByMonth(report.shifts)
+
+                shiftsByMonth.forEach { (monthKey, shifts) ->
+                    add(
+                        MonthlyScheduleCard(
+                            employee = report.employee,
+                            monthKey = monthKey,
+                            shifts = shifts,
+                            originalReport = report
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    if (scheduleCards.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Графіки ще не створені", color = Color.Gray)
         }
@@ -32,10 +57,18 @@ fun CreateEmployeeScheduleScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(schedules) { schedule ->
+            items(scheduleCards) { card ->
+                val schedule = EmployeeSchedule(
+                    employee = card.employee,
+                    shifts = card.shifts
+                )
+
                 EmployeeCardSchedule(
                     schedule = schedule,
-                    onDeleteClick = { onDeleteSchedule(schedule) }
+                    monthKey = card.monthKey,
+                    onDeleteClick = {
+                        onDeleteSchedule(card.originalReport, card.monthKey)
+                    }
                 )
             }
         }
