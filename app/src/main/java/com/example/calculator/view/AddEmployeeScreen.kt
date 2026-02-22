@@ -12,16 +12,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.calculator.components.EmployeeItem
-import com.example.calculator.dataClass.Employee
+import com.example.calculator.entity.EmployeeEntity
 import com.example.calculator.ui.theme.NonActive
 
 
 @Composable
 fun AddEmployeeView(
-    employees: List<Employee>,
-    onDeleteEmployee: (Employee) -> Unit
+    employeeEntities: List<EmployeeEntity>,
+    onDeleteEmployee: (EmployeeEntity) -> Unit
 ) {
-    if(employees.isEmpty()) {
+    if(employeeEntities.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Працівників ще немає", color = NonActive)
         }
@@ -31,9 +31,9 @@ fun AddEmployeeView(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(16.dp)
         ) {
-            items(employees) {employee ->
+            items(employeeEntities) { employee ->
                 EmployeeItem(
-                    employee = employee,
+                    employeeEntity = employee,
                     onDeleteClick = {onDeleteEmployee(employee)}
                 )
             }

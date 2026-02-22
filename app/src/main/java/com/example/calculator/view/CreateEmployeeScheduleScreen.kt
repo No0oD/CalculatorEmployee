@@ -36,7 +36,7 @@ fun CreateEmployeeScheduleScreen(
                 shiftsByMonth.forEach { (monthKey, shifts) ->
                     add(
                         MonthlyScheduleCard(
-                            employee = report.employee,
+                            employeeEntity = report.employeeEntity,
                             monthKey = monthKey,
                             shifts = shifts,
                             originalReport = report
@@ -59,7 +59,7 @@ fun CreateEmployeeScheduleScreen(
         ) {
             items(scheduleCards) { card ->
                 val schedule = EmployeeSchedule(
-                    employee = card.employee,
+                    employeeEntity = card.employeeEntity,
                     shifts = card.shifts
                 )
 

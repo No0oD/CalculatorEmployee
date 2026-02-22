@@ -31,7 +31,7 @@ fun Report(
 
                 add(
                     ReportCard(
-                        employee = report.employee,
+                        employeeEntity = report.employeeEntity,
                         monthKey = "",  // Порожній ключ = немає графіка
                         shifts = emptyList()
                     )
@@ -42,7 +42,7 @@ fun Report(
                 shiftsByMonth.forEach { (monthKey, shifts) ->
                     add(
                         ReportCard(
-                            employee = report.employee,
+                            employeeEntity = report.employeeEntity,
                             monthKey = monthKey,
                             shifts = shifts
                         )
@@ -64,7 +64,7 @@ fun Report(
         ) {
             items(reportCards) { card ->
                 val schedule = EmployeeSchedule(
-                    employee = card.employee,
+                    employeeEntity = card.employeeEntity,
                     shifts = card.shifts
                 )
 

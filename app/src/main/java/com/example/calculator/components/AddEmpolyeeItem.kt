@@ -38,7 +38,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.calculator.dataClass.Employee
+import com.example.calculator.entity.EmployeeEntity
 import com.example.calculator.ui.theme.Active
 import com.example.calculator.ui.theme.MyBlack
 import com.example.calculator.ui.theme.MyRed
@@ -112,12 +112,12 @@ fun AddEmployeeItem(onEmployeeAdded: (String) -> Unit) {
 
 
 @Composable
-fun EmployeeItem(employee: Employee, onDeleteClick: () -> Unit) {
+fun EmployeeItem(employeeEntity: EmployeeEntity, onDeleteClick: () -> Unit) {
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
-            Text(employee.fullName, fontSize = 24.sp)
+            Text(employeeEntity.fullName, fontSize = 24.sp)
             Spacer(Modifier.height(12.dp))
             IconButton(
                 onClick = { showDeleteDialog = true }, // Спочатку показуємо діалог
@@ -145,7 +145,7 @@ fun EmployeeItem(employee: Employee, onDeleteClick: () -> Unit) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Видалити працівника?") },
-            text = { Text("Дійсно хочете видалити ${employee.fullName}?") },
+            text = { Text("Дійсно хочете видалити ${employeeEntity.fullName}?") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -179,17 +179,17 @@ fun EmployeeItemPreview() {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             EmployeeItem(
-                employee = Employee(fullName = "Іванов Іван Іванович"),
+                employeeEntity = EmployeeEntity(fullName = "Іванов Іван Іванович"),
                 onDeleteClick = { /* Видалення */ }
             )
 
             EmployeeItem(
-                employee = Employee(fullName = "Петренко Петро Петрович"),
+                employeeEntity = EmployeeEntity(fullName = "Петренко Петро Петрович"),
                 onDeleteClick = { /* Видалення */ }
             )
 
             EmployeeItem(
-                employee = Employee(fullName = "Сидоренко Марія Олександрівна"),
+                employeeEntity = EmployeeEntity(fullName = "Сидоренко Марія Олександрівна"),
                 onDeleteClick = { /* Видалення */ }
             )
         }

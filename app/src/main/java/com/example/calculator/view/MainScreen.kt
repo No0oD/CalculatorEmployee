@@ -1,6 +1,7 @@
 package com.example.calculator.view
 
 
+import android.app.Application
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.padding
@@ -15,30 +16,37 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.calculator.components.AddEmployeeItem
 import com.example.calculator.components.ShiftSchedule
-import com.example.calculator.dataClass.Employee
-import com.example.calculator.dataClass.EmployeeReport
-import com.example.calculator.dataClass.EmployeeSchedule
 import com.example.calculator.nav.Screen
 import com.example.calculator.nav.NavigationHost
+import com.example.calculator.viewmodel.MainViewModel
+import com.example.calculator.viewmodel.MainViewModelFactory
 
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen() {
+    val viewModel: MainViewModel = viewModel(
+        factory = MainViewModelFactory(LocalContext.current.applicationContext as Application)
+    )
+
+    val employees by viewModel.employees.collectAsState()
+
     val navController = rememberNavController()
     val screens = listOf(Screen.AddEmployee, Screen.CreateEmployeeSchedule, Screen.Report)
 
@@ -46,15 +54,8 @@ fun MainScreen() {
     val currentRoute = navBackStackEntry?.destination?.route
     val currentScreen = screens.find { it.route == currentRoute } ?: Screen.AddEmployee
 
-    // Стан для відображення діалогів
     var showAddEmployeeDialog by remember { mutableStateOf(false) }
     var showCreateScheduleDialog by remember { mutableStateOf(false) }
-
-    // ДАНІ
-    var employees by remember { mutableStateOf(listOf<Employee>()) }
-    var schedules by remember { mutableStateOf(listOf<EmployeeSchedule>()) }
-    var reports by remember { mutableStateOf(listOf<EmployeeReport>()) }
-
 
     val showFab = currentRoute == Screen.AddEmployee.route || currentRoute == Screen.CreateEmployeeSchedule.route
 
@@ -93,12 +94,11 @@ fun MainScreen() {
     ) { paddingValues ->
         NavigationHost(
             navController = navController,
-            reports = reports,
-            onUpdateReports = { reports = it },
+            employees = employees,
+            viewModel = viewModel,
             modifier = Modifier.padding(paddingValues)
         )
 
-        // ДІАЛОГ ДОДАВАННЯ ПРАЦІВНИКА
         if (showAddEmployeeDialog) {
             Dialog(
                 onDismissRequest = { showAddEmployeeDialog = false },
@@ -106,20 +106,13 @@ fun MainScreen() {
             ) {
                 AddEmployeeItem(
                     onEmployeeAdded = { name ->
-
-                        val newEmployee = Employee(fullName = name)
-                        val newReport = EmployeeReport(
-                            employee = newEmployee,
-                            shifts = emptyList()
-                        )
-                        reports = reports + newReport
+                        viewModel.addEmployee(name)
                         showAddEmployeeDialog = false
                     }
                 )
             }
         }
 
-        // ДІАЛОГ СТВОРЕННЯ ГРАФІКУ (ShiftSchedule)
         if (showCreateScheduleDialog) {
             Dialog(
                 onDismissRequest = { showCreateScheduleDialog = false },
@@ -130,17 +123,10 @@ fun MainScreen() {
                 )
             ) {
                 ShiftSchedule(
-                    employees = reports.map { it.employee },
+                    employeeEntities = employees,
                     onDismiss = { showCreateScheduleDialog = false },
                     onSave = { employee, shifts ->
-
-                        reports = reports.map { report ->
-                            if (report.employee.id == employee.id) {
-                                report.copy(shifts = shifts)
-                            } else {
-                                report
-                            }
-                        }
+                        viewModel.addShifts(employee.id, shifts)
                         showCreateScheduleDialog = false
                     }
                 )
@@ -148,7 +134,6 @@ fun MainScreen() {
         }
     }
 }
-
 
 
 

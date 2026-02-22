@@ -1,7 +1,9 @@
 package com.example.calculator.dataClass
 
+import com.example.calculator.entity.EmployeeEntity
+
 data class ReportCard(
-    val employee: com.example.calculator.dataClass.Employee,
+    val employeeEntity: EmployeeEntity,
     val monthKey: String,
     val shifts: List<com.example.calculator.components.ShiftModel>
 )

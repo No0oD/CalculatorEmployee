@@ -30,7 +30,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -58,7 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import com.example.calculator.dataClass.Employee
+import com.example.calculator.entity.EmployeeEntity
 import com.example.calculator.dataClass.EmployeeSchedule
 import com.example.calculator.ui.theme.MyRed
 import com.example.calculator.utils.formatMonthKey
@@ -91,13 +90,13 @@ data class ShiftModel(
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ShiftSchedule(
-    employees: List<Employee>,
+    employeeEntities: List<EmployeeEntity>,
     onDismiss: () -> Unit,
-    onSave: (Employee, List<ShiftModel>) -> Unit
+    onSave: (EmployeeEntity, List<ShiftModel>) -> Unit
 ) {
     var shiftList by remember { mutableStateOf(listOf<ShiftModel>()) }
     var firstSelectedDate by remember { mutableStateOf<LocalDate?>(null) }
-    var selectedEmployee by remember { mutableStateOf<Employee?>(null) }
+    var selectedEmployeeEntity by remember { mutableStateOf<EmployeeEntity?>(null) }
     var showErrorDialog by remember { mutableStateOf(false) }
 
     val totalHours = shiftList.sumOf {
@@ -117,9 +116,9 @@ fun ShiftSchedule(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             EmployeeSelector(
-                employees = employees,
-                selectedEmployee = selectedEmployee,
-                onEmployeeSelected = { selectedEmployee = it }
+                employeeEntities = employeeEntities,
+                selectedEmployeeEntity = selectedEmployeeEntity,
+                onEmployeeSelected = { selectedEmployeeEntity = it }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -225,9 +224,9 @@ fun ShiftSchedule(
 
                 Button(
                     onClick = {
-                        if (selectedEmployee != null && shiftList.isNotEmpty()) {
+                        if (selectedEmployeeEntity != null && shiftList.isNotEmpty()) {
                             if (areAllShiftsInSameMonth(shiftList)) {
-                                onSave(selectedEmployee!!, shiftList)
+                                onSave(selectedEmployeeEntity!!, shiftList)
                             } else {
                                 showErrorDialog = true  // ← Показуємо діалог
                             }
@@ -544,9 +543,9 @@ fun TimeField(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EmployeeSelector(
-    employees: List<Employee>,
-    selectedEmployee: Employee?,
-    onEmployeeSelected: (Employee) -> Unit
+    employeeEntities: List<EmployeeEntity>,
+    selectedEmployeeEntity: EmployeeEntity?,
+    onEmployeeSelected: (EmployeeEntity) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -555,7 +554,7 @@ fun EmployeeSelector(
         onExpandedChange = { expanded = !expanded }
     ) {
         OutlinedTextField(
-            value = selectedEmployee?.fullName ?: "Оберіть працівника",
+            value = selectedEmployeeEntity?.fullName ?: "Оберіть працівника",
             onValueChange = {},
             readOnly = true,
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
@@ -569,7 +568,7 @@ fun EmployeeSelector(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
-            employees.forEach { employee ->
+            employeeEntities.forEach { employee ->
                 DropdownMenuItem(
                     text = { Text(employee.fullName) },
                     onClick = {
@@ -578,7 +577,7 @@ fun EmployeeSelector(
                     }
                 )
             }
-            if (employees.isEmpty()) {
+            if (employeeEntities.isEmpty()) {
                 DropdownMenuItem(
                     text = { Text("Список працівників порожній") },
                     onClick = { expanded = false }
@@ -623,7 +622,7 @@ fun EmployeeCardSchedule(
                 .fillMaxWidth()
         ) {
             Text(
-                text = schedule.employee.fullName,
+                text = schedule.employeeEntity.fullName,
                 style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
             )
             Spacer(Modifier.height(16.dp))
@@ -696,7 +695,7 @@ fun EmployeeCardSchedule(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Видалити графік?") },
             text = {
-                Text("Дійсно хочете видалити графік для ${schedule.employee.fullName} за $formattedMonth?")
+                Text("Дійсно хочете видалити графік для ${schedule.employeeEntity.fullName} за $formattedMonth?")
             },
             confirmButton = {
                 Button(

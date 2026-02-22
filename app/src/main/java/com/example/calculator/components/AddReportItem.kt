@@ -65,7 +65,7 @@ fun AddReportItem(
                 .fillMaxWidth()
         ) {
             Text(
-                text = schedule.employee.fullName,
+                text = schedule.employeeEntity.fullName,
                 style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
             )
 
