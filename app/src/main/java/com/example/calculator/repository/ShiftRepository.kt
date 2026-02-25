@@ -17,4 +17,11 @@ class ShiftRepository(private val shiftDao: ShiftDao) {
     suspend fun delete(shift: ShiftEntity) {
         shiftDao.delete(shift)
     }
+    fun getAllShifts(): Flow<List<ShiftEntity>> {
+        return shiftDao.getAll()
+    }
+
+    suspend fun deleteAllByEmployee(employeeId: Int) {
+        shiftDao.deleteAllByEmployee(employeeId)
+    }
 }

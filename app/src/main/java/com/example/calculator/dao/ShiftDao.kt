@@ -15,6 +15,12 @@ interface ShiftDao {
     @Delete
     suspend fun delete(shift: ShiftEntity)
 
+    @Query("SELECT * FROM shifts")
+    fun getAll(): Flow<List<ShiftEntity>>
+
+    @Query("DELETE FROM shifts WHERE employeeId = :employeeId")
+    suspend fun deleteAllByEmployee(employeeId: Int)
+
     @Query("SELECT * FROM shifts WHERE employeeId = :employeeId")
     fun getByEmployeeId(employeeId: Int): Flow<List<ShiftEntity>>
 }

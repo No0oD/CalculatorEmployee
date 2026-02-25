@@ -622,7 +622,7 @@ fun EmployeeCardSchedule(
                 .fillMaxWidth()
         ) {
             Text(
-                text = schedule.employeeEntity.fullName,
+                text = schedule.employee.fullName,
                 style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
             )
             Spacer(Modifier.height(16.dp))
@@ -695,7 +695,7 @@ fun EmployeeCardSchedule(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Видалити графік?") },
             text = {
-                Text("Дійсно хочете видалити графік для ${schedule.employeeEntity.fullName} за $formattedMonth?")
+                Text("Дійсно хочете видалити графік для ${schedule.employee.fullName} за $formattedMonth?")
             },
             confirmButton = {
                 Button(

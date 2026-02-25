@@ -1,6 +1,8 @@
 package com.example.calculator.viewmodel
 
 import android.app.Application
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -14,6 +16,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import kotlinx.coroutines.flow.first
+
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -21,6 +26,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val shiftRepository = (application as App).shiftRepository
 
     val employees: StateFlow<List<EmployeeEntity>> = employeeRepository.allEmployees
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allShifts: StateFlow<List<ShiftEntity>> = shiftRepository.getAllShifts()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun addEmployee(fullName: String) {
@@ -32,6 +40,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteEmployee(employee: EmployeeEntity) {
         viewModelScope.launch {
             employeeRepository.delete(employee)
+            shiftRepository.deleteAllByEmployee(employee.id) // видаляємо і зміни
         }
     }
 
@@ -53,9 +62,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun deleteShift(shift: ShiftEntity) {
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun deleteShiftsByEmployeeAndMonth(employeeId: Int, monthKey: String) {
         viewModelScope.launch {
-            shiftRepository.delete(shift)
+            val shifts = shiftRepository.getShiftsByEmployee(employeeId).first()
+            shifts.filter { shift ->
+                val date = LocalDate.parse(shift.startDate)
+                "${date.year}-${date.monthValue}" == monthKey
+            }.forEach { shift ->
+                shiftRepository.delete(shift)
+            }
         }
     }
 
@@ -63,7 +79,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return shiftRepository.getShiftsByEmployee(employeeId)
     }
 }
-
 class MainViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(MainViewModel::class.java)) {

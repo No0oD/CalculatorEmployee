@@ -112,22 +112,18 @@ fun AddEmployeeItem(onEmployeeAdded: (String) -> Unit) {
 
 
 @Composable
-fun EmployeeItem(employeeEntity: EmployeeEntity, onDeleteClick: () -> Unit) {
+fun EmployeeItem(employee: EmployeeEntity, onDeleteClick: () -> Unit) {
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
-            Text(employeeEntity.fullName, fontSize = 24.sp)
+            Text(employee.fullName, fontSize = 24.sp)
             Spacer(Modifier.height(12.dp))
             IconButton(
-                onClick = { showDeleteDialog = true }, // Спочатку показуємо діалог
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(55.dp),
+                onClick = { showDeleteDialog = true },
+                modifier = Modifier.fillMaxWidth().height(55.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = MyRed
-                )
+                colors = IconButtonDefaults.iconButtonColors(containerColor = MyRed)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -140,24 +136,19 @@ fun EmployeeItem(employeeEntity: EmployeeEntity, onDeleteClick: () -> Unit) {
         }
     }
 
-    // Діалог підтвердження видалення
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Видалити працівника?") },
-            text = { Text("Дійсно хочете видалити ${employeeEntity.fullName}?") },
+            text = { Text("Дійсно хочете видалити ${employee.fullName}?") },
             confirmButton = {
                 Button(
                     onClick = {
                         onDeleteClick()
                         showDeleteDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MyRed
-                    )
-                ) {
-                    Text("Видалити")
-                }
+                    colors = ButtonDefaults.buttonColors(containerColor = MyRed)
+                ) { Text("Видалити") }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
@@ -165,33 +156,5 @@ fun EmployeeItem(employeeEntity: EmployeeEntity, onDeleteClick: () -> Unit) {
                 }
             }
         )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun EmployeeItemPreview() {
-    MaterialTheme {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            EmployeeItem(
-                employeeEntity = EmployeeEntity(fullName = "Іванов Іван Іванович"),
-                onDeleteClick = { /* Видалення */ }
-            )
-
-            EmployeeItem(
-                employeeEntity = EmployeeEntity(fullName = "Петренко Петро Петрович"),
-                onDeleteClick = { /* Видалення */ }
-            )
-
-            EmployeeItem(
-                employeeEntity = EmployeeEntity(fullName = "Сидоренко Марія Олександрівна"),
-                onDeleteClick = { /* Видалення */ }
-            )
-        }
     }
 }

@@ -18,10 +18,10 @@ import com.example.calculator.ui.theme.NonActive
 
 @Composable
 fun AddEmployeeView(
-    employeeEntities: List<EmployeeEntity>,
+    employees: List<EmployeeEntity>,
     onDeleteEmployee: (EmployeeEntity) -> Unit
 ) {
-    if(employeeEntities.isEmpty()) {
+    if (employees.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Працівників ще немає", color = NonActive)
         }
@@ -31,10 +31,10 @@ fun AddEmployeeView(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(16.dp)
         ) {
-            items(employeeEntities) { employee ->
+            items(employees) { employee ->
                 EmployeeItem(
-                    employeeEntity = employee,
-                    onDeleteClick = {onDeleteEmployee(employee)}
+                    employee = employee,
+                    onDeleteClick = { onDeleteEmployee(employee) }
                 )
             }
         }

@@ -35,6 +35,7 @@ import com.example.calculator.dataClass.EmployeeSchedule
 import com.example.calculator.utils.formatMonthKey
 
 
+
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AddReportItem(
@@ -65,7 +66,7 @@ fun AddReportItem(
                 .fillMaxWidth()
         ) {
             Text(
-                text = schedule.employeeEntity.fullName,
+                text = schedule.employee.fullName,
                 style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
             )
 

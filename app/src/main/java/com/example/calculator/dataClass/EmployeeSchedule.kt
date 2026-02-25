@@ -4,6 +4,6 @@ import com.example.calculator.components.ShiftModel
 import com.example.calculator.entity.EmployeeEntity
 
 data class EmployeeSchedule(
-    val employeeEntity: EmployeeEntity,
+    val employee: EmployeeEntity,
     val shifts: List<ShiftModel>
 )
